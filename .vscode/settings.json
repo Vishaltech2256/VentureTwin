@@ -1,0 +1,7 @@
+{
+  "python.defaultInterpreterPath": "d:/VentureTwin backend/.venv/Scripts/python.exe",
+  "python.analysis.extraPaths": [
+    "d:/VentureTwin backend/backend",
+    "C:/Users/Vishal/AppData/Local/Programs/Python/Python312/Lib/site-packages"
+  ]
+}

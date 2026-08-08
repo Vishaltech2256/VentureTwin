@@ -1,0 +1,8 @@
+{
+  "venvPath": "d:/VentureTwin backend",
+  "venv": ".venv",
+  "extraPaths": [
+    "d:/VentureTwin backend/backend",
+    "C:/Users/Vishal/AppData/Local/Programs/Python/Python312/Lib/site-packages"
+  ]
+}

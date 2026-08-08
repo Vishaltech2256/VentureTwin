@@ -1,0 +1,7 @@
+{
+  "venvPath": "d:/VentureTwin backend",
+  "venv": ".venv",
+  "extraPaths": [
+    "d:/VentureTwin backend/backend"
+  ]
+}
