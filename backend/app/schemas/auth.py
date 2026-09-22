@@ -20,5 +20,3 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
-        # For compatibility with Pydantic v1 / v2
-        orm_mode = True

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     POSTGRES_PORT: Optional[int] = 5432
 
     # Security configurations
-    SECRET_KEY: str
+    SECRET_KEY: str = "venturetwin_default_secret_key_change_in_production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
@@ -26,7 +26,9 @@ class Settings(BaseSettings):
             elif url.startswith("postgresql://") and not url.startswith("postgresql+psycopg2://"):
                 url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
             return url
-        return f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        if self.POSTGRES_USER and self.POSTGRES_PASSWORD and self.POSTGRES_HOST and self.POSTGRES_DB:
+            return f"postgresql+psycopg2://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        return "sqlite:///./venturetwin.db"
 
     model_config = SettingsConfigDict(
         env_file=".env",
