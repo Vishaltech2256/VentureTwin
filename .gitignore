@@ -11,6 +11,14 @@ __pycache__/
 .venv/
 venv/
 ENV/
+verify_clean_test/
+test_install_check/
+
+# Local audit / scratch scripts
+backend/VentureTwin-main/
+scratch_test_install.py
+test_feedback.py
+run_clean_verification.py
 
 # Databases
 *.db
