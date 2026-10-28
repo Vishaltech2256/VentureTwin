@@ -127,22 +127,72 @@ def get_land_details(db: Session, user_id: int) -> list[LandDetail]:
     return records
 
 
+def get_land_details(db: Session, identifier: int, user_id: int) -> LandDetail:
+    """Fetch by startup_id or land_id."""
+    startup = db.query(StartupProfile).filter(StartupProfile.startup_id == identifier).first()
+    if startup:
+        if startup.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        record = db.query(LandDetail).filter(LandDetail.startup_id == identifier).first()
+        if record:
+            return record
+
+    record = db.query(LandDetail).filter(LandDetail.land_id == identifier).first()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Land details not found")
+    _get_startup_and_verify_ownership(db, record.startup_id, user_id)
+    return record
+
+
 def get_land_details_by_id(
     db: Session,
     land_id: int,
     user_id: int
 ) -> LandDetail:
-    """
-    Return a single land details record by its primary key.
+    return get_land_details(db, land_id, user_id)
 
-    - Raises 404 if the record does not exist.
-    - Raises 403 if the record belongs to a startup owned by a different user.
-    """
-    logger.info(f"Fetching land_id={land_id} for user_id={user_id}")
-    record = _get_land_record(db, land_id)
 
-    # Verify ownership via the parent startup
-    _get_startup_and_verify_ownership(db, record.startup_id, user_id)
+def upsert_land_details(
+    db: Session,
+    identifier: int,
+    user_id: int,
+    data: LandDetailsUpdate
+) -> LandDetail:
+    startup = db.query(StartupProfile).filter(StartupProfile.startup_id == identifier).first()
+    if startup:
+        if startup.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        record = db.query(LandDetail).filter(LandDetail.startup_id == identifier).first()
+        if not record:
+            max_id = db.query(func.max(LandDetail.land_id)).scalar() or 0
+            record = LandDetail(
+                land_id=max_id + 1,
+                startup_id=identifier,
+                has_land=data.has_land or False,
+                land_status=data.land_status or "no_land",
+                land_area_sqft=data.land_area_sqft,
+                land_location=data.land_location,
+                land_value=data.land_value,
+                expandable=data.expandable or False,
+                monthly_rent=data.monthly_rent,
+            )
+            db.add(record)
+            db.commit()
+            db.refresh(record)
+            return record
+    else:
+        record = db.query(LandDetail).filter(LandDetail.land_id == identifier).first()
+        if not record:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Land details or startup not found")
+        _get_startup_and_verify_ownership(db, record.startup_id, user_id)
+
+    update_data = data.model_dump(exclude_unset=True)
+    for field in ["has_land", "land_status", "land_area_sqft", "land_location", "land_value", "expandable", "monthly_rent"]:
+        if field in update_data and update_data[field] is not None:
+            setattr(record, field, update_data[field])
+
+    db.commit()
+    db.refresh(record)
     return record
 
 
@@ -152,44 +202,7 @@ def update_land_details(
     user_id: int,
     data: LandDetailsUpdate
 ) -> LandDetail:
-    """
-    Partially update an existing land details record.
-
-    - Only fields explicitly supplied in the request body are updated.
-    - Raises 404 if the record does not exist.
-    - Raises 403 if the record belongs to a startup owned by a different user.
-    """
-    logger.info(f"Updating land_id={land_id} by user_id={user_id}")
-    record = _get_land_record(db, land_id)
-
-    # Verify ownership via the parent startup
-    _get_startup_and_verify_ownership(db, record.startup_id, user_id)
-
-    try:
-        update_data = data.model_dump(exclude_unset=True)
-        if not update_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields provided for update."
-            )
-
-        for field, value in update_data.items():
-            setattr(record, field, value)
-
-        db.commit()
-        db.refresh(record)
-        logger.info(f"Land details updated: land_id={land_id}")
-        return record
-    except HTTPException:
-        db.rollback()
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to update land_id={land_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while updating the land details."
-        )
+    return upsert_land_details(db, land_id, user_id, data)
 
 
 def delete_land_details(db: Session, land_id: int, user_id: int) -> None:
@@ -200,7 +213,11 @@ def delete_land_details(db: Session, land_id: int, user_id: int) -> None:
     - Raises 403 if the record belongs to a startup owned by a different user.
     """
     logger.info(f"Deleting land_id={land_id} by user_id={user_id}")
-    record = _get_land_record(db, land_id)
+    record = db.query(LandDetail).filter(
+        (LandDetail.land_id == land_id) | (LandDetail.startup_id == land_id)
+    ).first()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Land details not found")
 
     # Verify ownership via the parent startup
     _get_startup_and_verify_ownership(db, record.startup_id, user_id)
@@ -208,10 +225,10 @@ def delete_land_details(db: Session, land_id: int, user_id: int) -> None:
     try:
         db.delete(record)
         db.commit()
-        logger.info(f"Land details deleted: land_id={land_id}")
+        logger.info(f"Land details deleted: land_id={record.land_id}")
     except Exception as e:
         db.rollback()
-        logger.error(f"Failed to delete land_id={land_id}: {e}")
+        logger.error(f"Failed to delete land_id={record.land_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while deleting the land details."

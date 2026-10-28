@@ -33,6 +33,15 @@ class StartupProfile(Base):
     land_detail: Mapped["LandDetail"] = relationship(
         "LandDetail", back_populates="startup_profile", uselist=False, cascade="all, delete-orphan", lazy="joined"
     )
+    predictions = relationship(
+        "Prediction", back_populates="startup", cascade="all, delete-orphan", passive_deletes=True
+    )
+    reports = relationship(
+        "Report", back_populates="startup", cascade="all, delete-orphan", passive_deletes=True
+    )
+    ai_suggestions = relationship(
+        "AISuggestion", back_populates="startup", cascade="all, delete-orphan", passive_deletes=True
+    )
 
     # Property Getters for Unified Pydantic Schema Serialization
     @property

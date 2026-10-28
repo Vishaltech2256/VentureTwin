@@ -120,16 +120,14 @@ def get_business_location_by_id(
 
 @router.put(
     "/{location_id}",
-    response_model=dict,
+    response_model=BusinessLocationResponse,
     status_code=status.HTTP_200_OK,
     summary="Update business location",
     description=(
-        "Partially updates an existing business location record.\n\n"
+        "Partially updates an existing business location record (or creates one for startup_id if not present).\n\n"
         "Only the fields included in the request body are updated (PATCH semantics via PUT).\n\n"
         "**Rules:**\n"
-        "- The authenticated user must own the startup linked to this record.\n"
-        "- Updated string fields cannot be set to blank or empty values.\n"
-        "- `country`, `state`, and `city` are limited to 100 characters each.\n\n"
+        "- The authenticated user must own the startup linked to this record.\n\n"
         "**Errors:**\n"
         "- `400` — No fields provided / validation error\n"
         "- `401` — Unauthorized (missing or invalid JWT)\n"
@@ -152,10 +150,10 @@ def update_business_location(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    business_location_service.update_business_location(
+    return business_location_service.update_business_location(
         db=db, location_id=location_id, user_id=current_user.id, data=data
     )
-    return {"message": "Business location updated successfully"}
+
 
 
 @router.delete(

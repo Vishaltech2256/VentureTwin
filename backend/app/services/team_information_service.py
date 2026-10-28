@@ -117,18 +117,71 @@ def get_team_information(db: Session, startup_id: int, user_id: int) -> TeamInfo
     """
     logger.info(f"Fetching team info for startup_id={startup_id} by user_id={user_id}")
 
-    # Verify startup existence and ownership first
-    _get_startup_and_verify_ownership(db, startup_id, user_id)
+def get_team_info(db: Session, identifier: int, user_id: int) -> TeamInformation:
+    """Fetch by startup_id or team_id."""
+    startup = db.query(StartupProfile).filter(StartupProfile.startup_id == identifier).first()
+    if startup:
+        if startup.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        record = db.query(TeamInformation).filter(TeamInformation.startup_id == identifier).first()
+        if record:
+            return record
 
-    record = db.query(TeamInformation).filter(
-        TeamInformation.startup_id == startup_id
-    ).first()
+    record = db.query(TeamInformation).filter(TeamInformation.team_id == identifier).first()
     if not record:
-        logger.warning(f"No team info found for startup_id={startup_id}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Team information not found for this startup"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team information not found")
+    _get_startup_and_verify_ownership(db, record.startup_id, user_id)
+    return record
+
+
+def get_team_information(
+    db: Session,
+    startup_id: int,
+    user_id: int
+) -> TeamInformation:
+    return get_team_info(db, startup_id, user_id)
+
+
+def upsert_team_info(
+    db: Session,
+    identifier: int,
+    user_id: int,
+    data: TeamInformationUpdate
+) -> TeamInformation:
+    startup = db.query(StartupProfile).filter(StartupProfile.startup_id == identifier).first()
+    if startup:
+        if startup.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        record = db.query(TeamInformation).filter(TeamInformation.startup_id == identifier).first()
+        if not record:
+            max_id = db.query(func.max(TeamInformation.team_id)).scalar() or 0
+            record = TeamInformation(
+                team_id=max_id + 1,
+                startup_id=identifier,
+                founder_name=data.founder_name or "Founder",
+                has_cofounder=data.has_technical_cofounder,
+                number_of_employees=data.number_of_employees or 1,
+            )
+            db.add(record)
+            db.commit()
+            db.refresh(record)
+            return record
+    else:
+        record = db.query(TeamInformation).filter(TeamInformation.team_id == identifier).first()
+        if not record:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team information or startup not found")
+        _get_startup_and_verify_ownership(db, record.startup_id, user_id)
+
+    update_data = data.model_dump(exclude_unset=True)
+    if "founder_name" in update_data and update_data["founder_name"] is not None:
+        record.founder_name = update_data["founder_name"]
+    if "number_of_employees" in update_data and update_data["number_of_employees"] is not None:
+        record.number_of_employees = update_data["number_of_employees"]
+    if "has_technical_cofounder" in update_data and update_data["has_technical_cofounder"] is not None:
+        record.has_cofounder = update_data["has_technical_cofounder"]
+
+    db.commit()
+    db.refresh(record)
     return record
 
 
@@ -138,44 +191,7 @@ def update_team_information(
     user_id: int,
     data: TeamInformationUpdate
 ) -> TeamInformation:
-    """
-    Partially update an existing team information record.
-
-    - Only fields explicitly supplied in the request body are updated.
-    - Raises 404 if the record does not exist.
-    - Raises 403 if the record belongs to a startup owned by a different user.
-    """
-    logger.info(f"Updating team_id={team_id} by user_id={user_id}")
-    record = _get_team_record(db, team_id)
-
-    # Verify ownership via the parent startup
-    _get_startup_and_verify_ownership(db, record.startup_id, user_id)
-
-    try:
-        update_data = data.model_dump(exclude_unset=True)
-        if not update_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields provided for update."
-            )
-
-        for field, value in update_data.items():
-            setattr(record, field, value)
-
-        db.commit()
-        db.refresh(record)
-        logger.info(f"Team info updated: team_id={team_id}")
-        return record
-    except HTTPException:
-        db.rollback()
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to update team_id={team_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while updating the team information."
-        )
+    return upsert_team_info(db, team_id, user_id, data)
 
 
 def delete_team_information(db: Session, team_id: int, user_id: int) -> None:
@@ -186,7 +202,11 @@ def delete_team_information(db: Session, team_id: int, user_id: int) -> None:
     - Raises 403 if the record belongs to a startup owned by a different user.
     """
     logger.info(f"Deleting team_id={team_id} by user_id={user_id}")
-    record = _get_team_record(db, team_id)
+    record = db.query(TeamInformation).filter(
+        (TeamInformation.team_id == team_id) | (TeamInformation.startup_id == team_id)
+    ).first()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team information not found")
 
     # Verify ownership via the parent startup
     _get_startup_and_verify_ownership(db, record.startup_id, user_id)
@@ -194,10 +214,10 @@ def delete_team_information(db: Session, team_id: int, user_id: int) -> None:
     try:
         db.delete(record)
         db.commit()
-        logger.info(f"Team info deleted: team_id={team_id}")
+        logger.info(f"Team info deleted: team_id={record.team_id}")
     except Exception as e:
         db.rollback()
-        logger.error(f"Failed to delete team_id={team_id}: {e}")
+        logger.error(f"Failed to delete team_id={record.team_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while deleting the team information."

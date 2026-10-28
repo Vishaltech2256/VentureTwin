@@ -1,143 +1,77 @@
 # app/schemas/business_location.py
 
 from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+from typing import Optional, Any
+from pydantic import BaseModel, Field, AliasChoices, computed_field
 
 
 class BusinessLocationCreate(BaseModel):
     """Schema for creating a new business location record."""
 
-    startup_id: int = Field(
-        ...,
-        description="ID of the startup this location belongs to",
+    startup_id: Optional[int] = Field(
+        default=None,
+        description="ID of the startup this location belongs to (optional if in URL)",
         examples=[1]
     )
-    country: str = Field(
-        ...,
-        min_length=1,
+    country: Optional[str] = Field(
+        default="India",
         max_length=100,
-        description="Country where the business is located (required, max 100 chars)",
+        description="Country where the business is located",
         examples=["India"]
     )
-    state: str = Field(
-        ...,
-        min_length=1,
+    state: Optional[str] = Field(
+        default="Karnataka",
         max_length=100,
-        description="State or province where the business is located (required, max 100 chars)",
-        examples=["Maharashtra"]
+        description="State or province where the business is located",
+        examples=["Karnataka"]
     )
-    city: str = Field(
-        ...,
-        min_length=1,
+    city: Optional[str] = Field(
+        default="Bengaluru",
         max_length=100,
-        description="City where the business is located (required, max 100 chars)",
-        examples=["Mumbai"]
+        description="City where the business is located",
+        examples=["Bengaluru"]
     )
-    business_address: str = Field(
-        ...,
-        min_length=1,
-        description="Full street or postal address of the business (required)",
-        examples=["101, Nariman Point, Mumbai - 400021"]
+    business_address: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("business_address", "address"),
+        description="Full street or postal address of the business",
+        examples=["101, MG Road, Bengaluru"]
     )
+    pincode: Optional[str] = Field(default=None, max_length=20)
 
-    @field_validator("country")
-    @classmethod
-    def country_not_blank(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("country cannot be empty or whitespace")
-        return v.strip()
-
-    @field_validator("state")
-    @classmethod
-    def state_not_blank(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("state cannot be empty or whitespace")
-        return v.strip()
-
-    @field_validator("city")
-    @classmethod
-    def city_not_blank(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("city cannot be empty or whitespace")
-        return v.strip()
-
-    @field_validator("business_address")
-    @classmethod
-    def business_address_not_blank(cls, v: str) -> str:
-        if not v or not v.strip():
-            raise ValueError("business_address cannot be empty or whitespace")
-        return v.strip()
+    model_config = {"populate_by_name": True}
 
 
 class BusinessLocationUpdate(BaseModel):
-    """Schema for partially updating an existing business location record.
-    All fields are optional — only supplied fields will be written to the database.
-    """
+    """Schema for partially updating an existing business location record."""
 
     country: Optional[str] = Field(
         default=None,
-        min_length=1,
         max_length=100,
-        description="Updated country (max 100 chars, cannot be empty if provided)",
+        description="Updated country",
         examples=["United States"]
     )
     state: Optional[str] = Field(
         default=None,
-        min_length=1,
         max_length=100,
-        description="Updated state or province (max 100 chars, cannot be empty if provided)",
+        description="Updated state or province",
         examples=["California"]
     )
     city: Optional[str] = Field(
         default=None,
-        min_length=1,
         max_length=100,
-        description="Updated city (max 100 chars, cannot be empty if provided)",
+        description="Updated city",
         examples=["San Francisco"]
     )
     business_address: Optional[str] = Field(
         default=None,
-        min_length=1,
-        description="Updated business address (cannot be empty if provided)",
+        validation_alias=AliasChoices("business_address", "address"),
+        description="Updated business address",
         examples=["500 Market Street, San Francisco, CA 94105"]
     )
+    pincode: Optional[str] = Field(default=None, max_length=20)
 
-    @field_validator("country")
-    @classmethod
-    def country_not_blank(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            if not v.strip():
-                raise ValueError("country cannot be empty or whitespace")
-            return v.strip()
-        return v
-
-    @field_validator("state")
-    @classmethod
-    def state_not_blank(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            if not v.strip():
-                raise ValueError("state cannot be empty or whitespace")
-            return v.strip()
-        return v
-
-    @field_validator("city")
-    @classmethod
-    def city_not_blank(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            if not v.strip():
-                raise ValueError("city cannot be empty or whitespace")
-            return v.strip()
-        return v
-
-    @field_validator("business_address")
-    @classmethod
-    def business_address_not_blank(cls, v: Optional[str]) -> Optional[str]:
-        if v is not None:
-            if not v.strip():
-                raise ValueError("business_address cannot be empty or whitespace")
-            return v.strip()
-        return v
+    model_config = {"populate_by_name": True}
 
 
 class BusinessLocationResponse(BaseModel):
@@ -145,10 +79,18 @@ class BusinessLocationResponse(BaseModel):
 
     location_id: int = Field(..., description="Unique identifier of the location record")
     startup_id: int = Field(..., description="ID of the related startup profile")
-    country: str = Field(..., description="Country where the business is located")
-    state: str = Field(..., description="State or province where the business is located")
-    city: str = Field(..., description="City where the business is located")
+    country: Optional[str] = Field(default=None, description="Country where the business is located")
+    state: Optional[str] = Field(default=None, description="State or province where the business is located")
+    city: Optional[str] = Field(default=None, description="City where the business is located")
     business_address: Optional[str] = Field(default=None, description="Full street or postal address of the business")
+    pincode: Optional[str] = Field(default=None)
     created_at: datetime = Field(..., description="Timestamp when the record was created")
+    updated_at: Optional[datetime] = Field(default=None, description="Timestamp when the record was updated")
 
-    model_config = {"from_attributes": True}
+    @computed_field
+    @property
+    def address(self) -> Optional[str]:
+        return self.business_address
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+

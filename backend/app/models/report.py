@@ -28,5 +28,5 @@ class Report(Base):
     generated_on: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     startup: Mapped["StartupProfile"] = relationship(
-        "StartupProfile", backref="reports"
+        "StartupProfile", back_populates="reports"
     )

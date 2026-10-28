@@ -263,3 +263,61 @@ def delete_report(db: Session, report_id: int, user_id: int) -> None:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while deleting the report.",
         )
+
+
+def get_reports_for_startup(db: Session, startup_id: int, user_id: int) -> list[Report]:
+    """Return all report metadata records belonging to a given startup."""
+    _get_owned_startup(db, startup_id, user_id)
+    return (
+        db.query(Report)
+        .filter(Report.startup_id == startup_id)
+        .order_by(Report.generated_on.desc(), Report.report_id.desc())
+        .all()
+    )
+
+
+def generate_report_pdf(db: Session, report_id: int, user_id: int) -> tuple[bytes, str]:
+    """Render a downloadable PDF for the report using fpdf."""
+    report_data = get_report(db, report_id, user_id)
+    from fpdf import FPDF
+
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 18)
+    pdf.cell(0, 12, "VentureTwin - Startup Executive Report", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 8, f"Report ID: #{report_id}  |  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.ln(5)
+
+    startup = report_data.get("startup", {})
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.cell(0, 8, f"1. Startup: {startup.get('startup_name', 'N/A')}", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.multi_cell(0, 6, f"Description: {startup.get('description', 'N/A')}")
+    pdf.cell(0, 6, f"Industry: {startup.get('industry', 'N/A')}  |  Type: {startup.get('business_type', 'N/A')}  |  Stage: {startup.get('stage', 'N/A')}", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(3)
+
+    fin = report_data.get("financial") or {}
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.cell(0, 8, "2. Financial Overview", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    pdf.cell(0, 6, f"Initial Budget: {fin.get('initial_budget', 0):,.2f}  |  Monthly Expenses: {fin.get('monthly_expenses', 0):,.2f}  |  Expected MRR: {fin.get('expected_monthly_revenue', 0):,.2f}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 6, f"Funding Source: {fin.get('funding_source', 'N/A')}", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(3)
+
+    pred = report_data.get("prediction") or {}
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.cell(0, 8, "3. Prediction & Twin Modeling", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 10)
+    if pred:
+        pdf.cell(0, 6, f"Projected Annual Revenue: {pred.get('revenue_prediction', 0):,.2f}", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 6, f"Projected Annual Profit: {pred.get('profit_prediction', 0):,.2f}", new_x="LMARGIN", new_y="NEXT")
+        pdf.cell(0, 6, f"Formula Risk Level: {pred.get('risk_level', 'N/A')}  |  Health Score: {pred.get('health_score', 0):.0f}/100", new_x="LMARGIN", new_y="NEXT")
+        if pred.get("relative_success_likelihood"):
+            pdf.cell(0, 6, f"ML Relative Success Likelihood: {pred.get('relative_likelihood_percentage', 'N/A')} ({pred.get('relative_classification', 'N/A')})", new_x="LMARGIN", new_y="NEXT")
+    else:
+        pdf.cell(0, 6, "No prediction record linked.", new_x="LMARGIN", new_y="NEXT")
+
+    filename = report_data.get("report_name") or f"report_{report_id}.pdf"
+    return bytes(pdf.output()), filename
+

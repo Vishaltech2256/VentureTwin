@@ -3,18 +3,26 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 class ReportGenerationResponse(BaseModel):
     """Metadata returned after report generation completes."""
 
     message: str = Field(
-        ...,
+        default="Report generated successfully",
         examples=["Report generated successfully"],
     )
     report_id: int = Field(..., examples=[1])
     report_name: str = Field(..., examples=["Startup_Report_5_2026.pdf"])
+    startup_id: Optional[int] = Field(default=None)
+    title: Optional[str] = Field(default=None)
+    file_path: Optional[str] = Field(default=None)
+    report_type: str = "PDF"
+    created_at: Optional[str] = None
+    prediction_id: Optional[int] = None
+
+    model_config = {"populate_by_name": True}
 
 
 class ReportListItem(BaseModel):
@@ -35,7 +43,33 @@ class ReportListItem(BaseModel):
         description="UTC timestamp when report metadata was created.",
     )
 
-    model_config = {"from_attributes": True}
+    @computed_field
+    @property
+    def title(self) -> str:
+        return self.report_name or f"Report #{self.report_id}"
+
+    @computed_field
+    @property
+    def file_path(self) -> Optional[str]:
+        return self.report_path
+
+    @computed_field
+    @property
+    def report_type(self) -> str:
+        return "PDF"
+
+    @computed_field
+    @property
+    def prediction_id(self) -> Optional[int]:
+        return None
+
+    @computed_field
+    @property
+    def created_at(self) -> Optional[str]:
+        return self.generated_on.isoformat() if self.generated_on else datetime.now().isoformat()
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
 
 
 class StartupOverview(BaseModel):

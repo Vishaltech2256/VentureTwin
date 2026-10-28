@@ -190,6 +190,13 @@ def delete_startup_profile(db: Session, startup_id: int, user_id: int) -> None:
     
     logger.info(f"Deleting startup profile ID={startup_id}")
     try:
+        from app.models.ai_suggestion import AISuggestion
+        from app.models.report import Report
+        from app.models.prediction import Prediction
+        db.query(AISuggestion).filter(AISuggestion.startup_id == startup_id).delete(synchronize_session=False)
+        db.query(Report).filter(Report.startup_id == startup_id).delete(synchronize_session=False)
+        db.query(Prediction).filter(Prediction.startup_id == startup_id).delete(synchronize_session=False)
+
         db.delete(db_profile)
         db.commit()
         logger.info(f"Startup profile ID={startup_id} deleted successfully")

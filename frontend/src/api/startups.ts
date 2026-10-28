@@ -65,8 +65,9 @@ export const startupApi = {
       landApi.get(startupId),
       client.get<PredictionResponse>(`/predictions/${startupId}/latest`),
       client.get<AISuggestionResponse[]>(`/ai-suggestions/${startupId}`),
-      client.get<ReportResponse[]>(`/reports/${startupId}`),
+      client.get<ReportResponse[]>(`/reports/startup/${startupId}`),
     ]);
+
 
     return {
       profile,

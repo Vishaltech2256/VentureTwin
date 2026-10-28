@@ -3,7 +3,7 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 class PredictionCreate(BaseModel):
@@ -84,5 +84,43 @@ class PredictionResponse(BaseModel):
         description="Plain-English warnings regarding sector fallbacks, location proxies, or domain constraints",
     )
 
-    model_config = {"from_attributes": True}
+    @computed_field
+    @property
+    def success_probability(self) -> Optional[float]:
+        if self.relative_success_likelihood is not None:
+            return round(self.relative_success_likelihood, 4)
+        if self.health_score is not None:
+            return round(self.health_score / 100.0, 4)
+        return None
+
+    @computed_field
+    @property
+    def predicted_annual_revenue(self) -> Optional[float]:
+        return self.revenue_prediction
+
+    @computed_field
+    @property
+    def predicted_annual_profit(self) -> Optional[float]:
+        return self.profit_prediction
+
+    @computed_field
+    @property
+    def break_even_months(self) -> Optional[int]:
+        if self.profit_prediction and self.profit_prediction > 0:
+            return max(1, min(24, int(12.0 * (self.revenue_prediction / max(self.profit_prediction, 1.0)))))
+        return None
+
+    @computed_field
+    @property
+    def prediction_summary(self) -> Optional[str]:
+        rel = self.relative_classification or f"{self.risk_level} Risk"
+        return f"Evaluated with {self.risk_level} Risk Level ({rel}). Health Score: {self.health_score:.0f}/100."
+
+    @computed_field
+    @property
+    def assumptions(self) -> Optional[str]:
+        return '["Operational formula: Revenue = 12 * MRR", "Profit = Revenue - Expenses", "ML evaluated against historical venture cohort"]'
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+
 

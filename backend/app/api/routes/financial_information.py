@@ -120,11 +120,11 @@ def get_financial_info_by_id(
 
 @router.put(
     "/{financial_id}",
-    response_model=dict,
+    response_model=FinancialInformationResponse,
     status_code=status.HTTP_200_OK,
     summary="Update financial information",
     description=(
-        "Partially updates an existing financial information record.\n\n"
+        "Partially updates an existing financial information record (or creates one for startup_id if not present).\n\n"
         "Only the fields included in the request body are updated (PATCH semantics via PUT).\n\n"
         "**Rules:**\n"
         "- The authenticated user must own the startup linked to this record.\n"
@@ -152,10 +152,10 @@ def update_financial_info(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    financial_information_service.update_financial_info(
+    return financial_information_service.update_financial_info(
         db=db, financial_id=financial_id, user_id=current_user.id, data=data
     )
-    return {"message": "Financial information updated successfully"}
+
 
 
 @router.delete(

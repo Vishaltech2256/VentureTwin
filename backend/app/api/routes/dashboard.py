@@ -10,10 +10,30 @@ from sqlalchemy.orm import Session
 from app.database.database import get_db
 from app.dependencies.auth import get_current_user
 from app.models.user import User
-from app.schemas.dashboard import DashboardResponse
+from app.schemas.dashboard import DashboardResponse, UserDashboardOverviewResponse
 from app.services import dashboard_service
 
 router = APIRouter(tags=["Dashboard"])
+
+
+@router.get(
+    "",
+    response_model=UserDashboardOverviewResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get user dashboard summary metrics",
+    description="Returns aggregate totals and recent startups/predictions for the authenticated user.",
+)
+@router.get(
+    "/",
+    response_model=UserDashboardOverviewResponse,
+    status_code=status.HTTP_200_OK,
+    include_in_schema=False,
+)
+def get_dashboard_overview(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return dashboard_service.get_user_dashboard_overview(db=db, user_id=current_user.id)
 
 
 @router.get(
@@ -21,6 +41,7 @@ router = APIRouter(tags=["Dashboard"])
     response_model=DashboardResponse,
     status_code=status.HTTP_200_OK,
     summary="Get the complete dashboard for a startup",
+
     description=(
         "Returns every piece of information stored for a single startup in one "
         "response. The startup must belong to the authenticated user.\n\n"

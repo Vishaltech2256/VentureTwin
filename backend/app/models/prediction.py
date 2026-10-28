@@ -37,7 +37,7 @@ class Prediction(Base):
     )
 
     # Relationship back to the parent startup
-    startup = relationship("StartupProfile", backref="predictions")
+    startup = relationship("StartupProfile", back_populates="predictions")
 
     # Dynamic ML evaluation fields (transient attributes populated for response serialization)
     relative_success_likelihood: Optional[float] = None

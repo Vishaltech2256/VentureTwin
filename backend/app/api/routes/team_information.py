@@ -93,16 +93,14 @@ def get_team_information(
 
 @router.put(
     "/{team_id}",
-    response_model=dict,
+    response_model=TeamInformationResponse,
     status_code=status.HTTP_200_OK,
     summary="Update team information",
     description=(
-        "Partially updates an existing team information record by `team_id`.\n\n"
+        "Partially updates an existing team information record (or creates one for startup_id if not present).\n\n"
         "Only the fields included in the request body are updated (PATCH semantics via PUT).\n\n"
         "**Rules:**\n"
-        "- The authenticated user must own the startup linked to this record.\n"
-        "- `founder_name` must be at least 2 characters if provided.\n"
-        "- `number_of_employees` must be >= 1 if provided.\n\n"
+        "- The authenticated user must own the startup linked to this record.\n\n"
         "**Errors:**\n"
         "- `400` — No fields provided / validation error\n"
         "- `401` — Unauthorized (missing or invalid JWT)\n"
@@ -125,10 +123,10 @@ def update_team_information(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    team_information_service.update_team_information(
+    return team_information_service.update_team_information(
         db=db, team_id=team_id, user_id=current_user.id, data=data
     )
-    return {"message": "Team information updated successfully"}
+
 
 
 @router.delete(

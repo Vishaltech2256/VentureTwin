@@ -121,16 +121,14 @@ def get_land_details_by_id(
 
 @router.put(
     "/{land_id}",
-    response_model=dict,
+    response_model=LandDetailsResponse,
     status_code=status.HTTP_200_OK,
     summary="Update land details",
     description=(
-        "Partially updates an existing land details record.\n\n"
+        "Partially updates an existing land details record (or creates one for startup_id if not present).\n\n"
         "Only the fields included in the request body are updated (PATCH semantics via PUT).\n\n"
         "**Rules:**\n"
-        "- The authenticated user must own the startup linked to this record.\n"
-        "- `land_status` cannot be set to a blank string.\n"
-        "- Numeric fields must be >= 0 if provided.\n\n"
+        "- The authenticated user must own the startup linked to this record.\n\n"
         "**Errors:**\n"
         "- `400` — No fields provided / validation error\n"
         "- `401` — Unauthorized (missing or invalid JWT)\n"
@@ -153,10 +151,10 @@ def update_land_details(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    land_detail_service.update_land_details(
+    return land_detail_service.update_land_details(
         db=db, land_id=land_id, user_id=current_user.id, data=data
     )
-    return {"message": "Land details updated successfully"}
+
 
 
 @router.delete(

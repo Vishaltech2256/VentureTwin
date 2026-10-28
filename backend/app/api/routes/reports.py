@@ -16,6 +16,8 @@ from app.services import report_service
 router = APIRouter(tags=["Reports"])
 
 
+from fastapi.responses import Response
+
 @router.post(
     "/generate/{startup_id}",
     response_model=ReportGenerationResponse,
@@ -61,7 +63,49 @@ def generate_report(
         "message": "Report generated successfully",
         "report_id": report.report_id,
         "report_name": report.report_name,
+        "startup_id": report.startup_id,
+        "title": report.report_name,
+        "file_path": report.report_path,
+        "report_type": "PDF",
+        "created_at": report.generated_on.isoformat() if report.generated_on else None,
+        "prediction_id": None,
     }
+
+
+@router.get(
+    "/download/{report_id}",
+    summary="Download PDF report",
+    description="Streams the generated PDF file for the specified report.",
+)
+def download_report(
+    report_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    pdf_bytes, filename = report_service.generate_report_pdf(
+        db=db, report_id=report_id, user_id=current_user.id
+    )
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get(
+    "/startup/{startup_id}",
+    response_model=list[ReportListItem],
+    status_code=status.HTTP_200_OK,
+    summary="List reports for a startup",
+)
+def get_startup_reports(
+    startup_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return report_service.get_reports_for_startup(
+        db=db, startup_id=startup_id, user_id=current_user.id
+    )
 
 
 @router.get(
@@ -128,6 +172,7 @@ def get_report(
         report_id=report_id,
         user_id=current_user.id,
     )
+
 
 
 @router.delete(

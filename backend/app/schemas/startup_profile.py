@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, AliasChoices, computed_field
 
 class StartupProfileBase(BaseModel):
     # Core Fields
@@ -10,34 +10,45 @@ class StartupProfileBase(BaseModel):
         description="The name of the startup", 
         examples=["VentureTwin AI"]
     )
-    startup_description: str = Field(
-        ..., 
+    startup_description: Optional[str] = Field(
+        default="No description provided", 
+        validation_alias=AliasChoices("startup_description", "description"),
         description="Detailed description of the startup business", 
         examples=["An AI-powered digital twin platform for startups to simulate business scenarios."]
     )
-    business_type: str = Field(
-        ..., 
+    business_type: Optional[str] = Field(
+        default="SaaS", 
         max_length=100, 
         description="Type of business (e.g., SaaS, E-commerce, Manufacturing)", 
         examples=["SaaS"]
     )
-    industry: str = Field(
-        ..., 
+    industry: Optional[str] = Field(
+        default="Technology", 
         max_length=100, 
         description="Industry sector the startup operates in", 
         examples=["Artificial Intelligence"]
     )
-    startup_stage: str = Field(
-        ..., 
+    startup_stage: Optional[str] = Field(
+        default="Seed", 
         max_length=100, 
         description="Current stage of the startup (e.g., Ideation, Seed, Series A)", 
         examples=["Seed"]
     )
-    target_market: str = Field(
-        ..., 
+    target_market: Optional[str] = Field(
+        default="B2B", 
         max_length=150, 
         description="Target customer segment or market segment", 
         examples=["B2B Startups and SMBs"]
+    )
+    website: Optional[str] = Field(
+        default=None,
+        description="Website URL of the startup",
+        examples=["https://venturetwin.ai"]
+    )
+    founded_year: Optional[int] = Field(
+        default=None,
+        description="Year the startup was founded",
+        examples=[2024]
     )
 
     # Financial Fields
@@ -67,8 +78,8 @@ class StartupProfileBase(BaseModel):
     )
 
     # Team Fields
-    founder_name: str = Field(
-        ..., 
+    founder_name: Optional[str] = Field(
+        default="Founder", 
         max_length=100, 
         description="Name of the primary founder", 
         examples=["Jane Doe"]
@@ -86,20 +97,20 @@ class StartupProfileBase(BaseModel):
     )
 
     # Location Fields
-    country: str = Field(
-        ..., 
+    country: Optional[str] = Field(
+        default="India", 
         max_length=100, 
         description="Country of operations", 
         examples=["United States"]
     )
-    state: str = Field(
-        ..., 
+    state: Optional[str] = Field(
+        default="Karnataka", 
         max_length=100, 
         description="State or province of operations", 
         examples=["California"]
     )
-    city: str = Field(
-        ..., 
+    city: Optional[str] = Field(
+        default="Bengaluru", 
         max_length=100, 
         description="City of operations", 
         examples=["San Francisco"]
@@ -152,6 +163,8 @@ class StartupProfileBase(BaseModel):
         examples=[True]
     )
 
+    model_config = {"populate_by_name": True}
+
 
 class CreateStartupProfile(StartupProfileBase):
     @model_validator(mode="after")
@@ -177,11 +190,17 @@ class CreateStartupProfile(StartupProfileBase):
 class UpdateStartupProfile(BaseModel):
     # Core Fields
     startup_name: Optional[str] = Field(default=None, max_length=150, description="The name of the startup")
-    startup_description: Optional[str] = Field(default=None, description="Detailed description of the startup business")
+    startup_description: Optional[str] = Field(
+        default=None, 
+        validation_alias=AliasChoices("startup_description", "description"),
+        description="Detailed description of the startup business"
+    )
     business_type: Optional[str] = Field(default=None, max_length=100, description="Type of business")
     industry: Optional[str] = Field(default=None, max_length=100, description="Industry sector")
     startup_stage: Optional[str] = Field(default=None, max_length=100, description="Current stage of the startup")
     target_market: Optional[str] = Field(default=None, max_length=150, description="Target customer segment")
+    website: Optional[str] = Field(default=None, description="Website URL")
+    founded_year: Optional[int] = Field(default=None, description="Founded year")
 
     # Financial Fields
     initial_budget: Optional[float] = Field(default=None, ge=0)
@@ -209,6 +228,8 @@ class UpdateStartupProfile(BaseModel):
     monthly_rent: Optional[float] = Field(default=None, ge=0)
     expandable: Optional[bool] = Field(default=None)
 
+    model_config = {"populate_by_name": True}
+
     @model_validator(mode="after")
     def validate_land_rules(self) -> "UpdateStartupProfile":
         status = self.land_status
@@ -229,5 +250,10 @@ class StartupProfileResponse(StartupProfileBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    @computed_field
+    @property
+    def description(self) -> Optional[str]:
+        return self.startup_description
+
+    model_config = {"from_attributes": True, "populate_by_name": True}
+

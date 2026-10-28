@@ -52,6 +52,7 @@ def read_root():
 
 @app.get("/health")
 @app.get("/api/health")
+@app.get("/api/v1/health")
 def health_check():
     """
     Health check endpoint that verifies the database connection.
@@ -64,9 +65,10 @@ def health_check():
         logger.error(f"Database connection failed: {e}")
         raise HTTPException(status_code=503, detail="Database connection failed")
 
-# Register all API routers
+# Register all API routers under both /api and /api/v1 prefixes for full frontend compatibility
 if api_router:
     app.include_router(api_router, prefix="/api")
+    app.include_router(api_router, prefix="/api/v1")
 else:
     logger.warning("api_router not found. Ensure you have an api router to include.")
 

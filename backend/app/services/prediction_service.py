@@ -367,6 +367,42 @@ def get_predictions(db: Session, user_id: int) -> list[Prediction]:
     return records
 
 
+def get_latest_prediction_for_startup(
+    db: Session, startup_id: int, user_id: int
+) -> Prediction:
+    """Return the most recent prediction record for the given startup."""
+    startup = _get_startup_and_verify_ownership(db, startup_id, user_id)
+    record = (
+        db.query(Prediction)
+        .filter(Prediction.startup_id == startup_id)
+        .order_by(Prediction.created_at.desc())
+        .first()
+    )
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No predictions found for this startup",
+        )
+    _attach_ml_fields(record, startup)
+    return record
+
+
+def get_predictions_for_startup(
+    db: Session, startup_id: int, user_id: int
+) -> list[Prediction]:
+    """Return all predictions for a startup, newest first."""
+    startup = _get_startup_and_verify_ownership(db, startup_id, user_id)
+    records = (
+        db.query(Prediction)
+        .filter(Prediction.startup_id == startup_id)
+        .order_by(Prediction.created_at.desc())
+        .all()
+    )
+    for record in records:
+        _attach_ml_fields(record, startup)
+    return records
+
+
 def get_prediction_by_id(
     db: Session, prediction_id: int, user_id: int
 ) -> Prediction:
@@ -384,6 +420,7 @@ def get_prediction_by_id(
     startup = _get_startup_and_verify_ownership(db, record.startup_id, user_id)
     _attach_ml_fields(record, startup)
     return record
+
 
 
 def simulate_whatif_scenario(

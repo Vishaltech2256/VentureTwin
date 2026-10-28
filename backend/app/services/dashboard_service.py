@@ -157,3 +157,44 @@ def get_dashboard(db: Session, startup_id: int, user_id: int) -> dict[str, Any]:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while loading the dashboard.",
         )
+
+
+def get_user_dashboard_overview(db: Session, user_id: int) -> dict[str, Any]:
+    """Return high-level dashboard metrics for the user overview screen."""
+    startups = (
+        db.query(StartupProfile)
+        .filter(StartupProfile.user_id == user_id)
+        .order_by(StartupProfile.created_at.desc())
+        .all()
+    )
+    total_startups = len(startups)
+    startup_ids = [s.startup_id for s in startups]
+
+    if startup_ids:
+        predictions = (
+            db.query(Prediction)
+            .filter(Prediction.startup_id.in_(startup_ids))
+            .order_by(Prediction.created_at.desc())
+            .all()
+        )
+        reports = (
+            db.query(Report)
+            .filter(Report.startup_id.in_(startup_ids))
+            .all()
+        )
+    else:
+        predictions = []
+        reports = []
+
+    from app.services.prediction_service import _attach_ml_fields
+    for pred in predictions[:5]:
+        _attach_ml_fields(pred)
+
+    return {
+        "total_startups": total_startups,
+        "total_predictions": len(predictions),
+        "total_reports": len(reports),
+        "recent_startups": startups[:5],
+        "recent_predictions": predictions[:5],
+    }
+

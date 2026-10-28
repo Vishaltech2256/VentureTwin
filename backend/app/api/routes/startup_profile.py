@@ -17,6 +17,12 @@ router = APIRouter(tags=["Startup Profile"])
     summary="Create a new startup profile",
     description="Allows an authenticated user to create a startup profile along with team, financial, location, and land details."
 )
+@router.post(
+    "/",
+    response_model=StartupProfileResponse,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
 def create_profile(
     data: CreateStartupProfile,
     current_user: User = Depends(get_current_user),
@@ -30,6 +36,11 @@ def create_profile(
     response_model=List[StartupProfileResponse],
     summary="List all startup profiles of the current user",
     description="Retrieves a list of all startup profiles owned by the logged-in user."
+)
+@router.get(
+    "/",
+    response_model=List[StartupProfileResponse],
+    include_in_schema=False,
 )
 def list_profiles(
     current_user: User = Depends(get_current_user),
@@ -60,6 +71,12 @@ def get_profile(
     summary="Update a startup profile",
     description="Updates the existing startup profile and its linked sub-tables. Enforces ownership and dynamic land rules validation."
 )
+@router.patch(
+    "/{startup_id}",
+    response_model=StartupProfileResponse,
+    summary="Partially update a startup profile",
+    description="Partially updates an existing startup profile (PATCH semantics for frontend compatibility).",
+)
 def update_profile(
     startup_id: int,
     data: UpdateStartupProfile,
@@ -71,7 +88,8 @@ def update_profile(
 
 @router.delete(
     "/{startup_id}", 
-    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=dict,
+    status_code=status.HTTP_200_OK,
     summary="Delete a startup profile",
     description="Permanently deletes the startup profile and cascades deletion to all related tables (team, financials, location, land)."
 )
@@ -81,4 +99,5 @@ def delete_profile(
     db: Session = Depends(get_db)
 ):
     startup_profile_service.delete_startup_profile(db=db, startup_id=startup_id, user_id=current_user.id)
-    return None
+    return {"message": "Startup profile deleted successfully"}
+

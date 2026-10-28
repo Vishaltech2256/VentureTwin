@@ -10,9 +10,10 @@ export const reportApi = {
 
   /** List generated reports for a startup */
   list: async (startupId: number): Promise<ReportResponse[]> => {
-    const res = await client.get<ReportResponse[]>(`/reports/${startupId}`);
+    const res = await client.get<ReportResponse[]>(`/reports/startup/${startupId}`);
     return res.data;
   },
+
 
   /**
    * Securely download a PDF report using authenticated client blob retrieval.

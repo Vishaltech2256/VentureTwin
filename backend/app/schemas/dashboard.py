@@ -61,3 +61,15 @@ class DashboardResponse(BaseModel):
     )
 
     model_config = {"from_attributes": True}
+
+
+class UserDashboardOverviewResponse(BaseModel):
+    """Aggregate dashboard summary across all user startups."""
+    total_startups: int = Field(default=0)
+    total_predictions: int = Field(default=0)
+    total_reports: int = Field(default=0)
+    recent_startups: list[StartupProfileResponse] = Field(default_factory=list)
+    recent_predictions: list[PredictionResponse] = Field(default_factory=list)
+
+    model_config = {"from_attributes": True}
+

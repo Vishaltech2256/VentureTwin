@@ -126,22 +126,74 @@ def get_user_financial_info(db: Session, user_id: int) -> list[FinancialInformat
     return records
 
 
+def get_financial_info(
+    db: Session,
+    identifier: int,
+    user_id: int
+) -> FinancialInformation:
+    """Fetch by financial_id or startup_id."""
+    startup = db.query(StartupProfile).filter(StartupProfile.startup_id == identifier).first()
+    if startup:
+        if startup.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        record = db.query(FinancialInformation).filter(FinancialInformation.startup_id == identifier).first()
+        if record:
+            return record
+
+    record = db.query(FinancialInformation).filter(FinancialInformation.financial_id == identifier).first()
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Financial information not found")
+    _get_startup_and_verify_ownership(db, record.startup_id, user_id)
+    return record
+
+
 def get_financial_info_by_id(
     db: Session,
     financial_id: int,
     user_id: int
 ) -> FinancialInformation:
-    """
-    Return a single financial information record by its primary key.
+    return get_financial_info(db, financial_id, user_id)
 
-    - Raises 404 if the record does not exist.
-    - Raises 403 if the record belongs to a startup owned by a different user.
-    """
-    logger.info(f"Fetching financial_id={financial_id} for user_id={user_id}")
-    record = _get_financial_record(db, financial_id)
 
-    # Verify ownership via the parent startup
-    _get_startup_and_verify_ownership(db, record.startup_id, user_id)
+def upsert_financial_info(
+    db: Session,
+    identifier: int,
+    user_id: int,
+    data: FinancialInformationUpdate
+) -> FinancialInformation:
+    """Upsert financial info by either startup_id or financial_id."""
+    startup = db.query(StartupProfile).filter(StartupProfile.startup_id == identifier).first()
+    if startup:
+        if startup.user_id != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+        record = db.query(FinancialInformation).filter(FinancialInformation.startup_id == identifier).first()
+        if not record:
+            max_id = db.query(func.max(FinancialInformation.financial_id)).scalar() or 0
+            record = FinancialInformation(
+                financial_id=max_id + 1,
+                startup_id=identifier,
+                initial_budget=data.initial_budget or 0.0,
+                monthly_expenses=data.monthly_expenses or 0.0,
+                expected_monthly_revenue=data.expected_monthly_revenue or 0.0,
+                funding_source=data.funding_source or "Self-Funded"
+            )
+            db.add(record)
+            db.commit()
+            db.refresh(record)
+            return record
+    else:
+        record = db.query(FinancialInformation).filter(FinancialInformation.financial_id == identifier).first()
+        if not record:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Financial information or startup not found")
+        _get_startup_and_verify_ownership(db, record.startup_id, user_id)
+
+    update_data = data.model_dump(exclude_unset=True)
+    for field in ["initial_budget", "monthly_expenses", "expected_monthly_revenue", "funding_source"]:
+        if field in update_data and update_data[field] is not None:
+            setattr(record, field, update_data[field])
+
+    db.commit()
+    db.refresh(record)
     return record
 
 
@@ -151,44 +203,7 @@ def update_financial_info(
     user_id: int,
     data: FinancialInformationUpdate
 ) -> FinancialInformation:
-    """
-    Partially update an existing financial information record.
-
-    - Only fields explicitly supplied in the request body are updated.
-    - Raises 404 if the record does not exist.
-    - Raises 403 if the record belongs to a startup owned by a different user.
-    """
-    logger.info(f"Updating financial_id={financial_id} by user_id={user_id}")
-    record = _get_financial_record(db, financial_id)
-
-    # Verify ownership
-    _get_startup_and_verify_ownership(db, record.startup_id, user_id)
-
-    try:
-        update_data = data.model_dump(exclude_unset=True)
-        if not update_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No fields provided for update."
-            )
-
-        for field, value in update_data.items():
-            setattr(record, field, value)
-
-        db.commit()
-        db.refresh(record)
-        logger.info(f"Financial info updated: financial_id={financial_id}")
-        return record
-    except HTTPException:
-        db.rollback()
-        raise
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Failed to update financial_id={financial_id}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while updating the financial information."
-        )
+    return upsert_financial_info(db, financial_id, user_id, data)
 
 
 def delete_financial_info(db: Session, financial_id: int, user_id: int) -> None:
@@ -199,18 +214,23 @@ def delete_financial_info(db: Session, financial_id: int, user_id: int) -> None:
     - Raises 403 if the record belongs to a startup owned by a different user.
     """
     logger.info(f"Deleting financial_id={financial_id} by user_id={user_id}")
-    record = _get_financial_record(db, financial_id)
-
-    # Verify ownership
+    record = db.query(FinancialInformation).filter(
+        (FinancialInformation.financial_id == financial_id) | (FinancialInformation.startup_id == financial_id)
+    ).first()
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Financial information not found"
+        )
     _get_startup_and_verify_ownership(db, record.startup_id, user_id)
 
     try:
         db.delete(record)
         db.commit()
-        logger.info(f"Financial info deleted: financial_id={financial_id}")
+        logger.info(f"Financial info deleted: financial_id={record.financial_id}")
     except Exception as e:
         db.rollback()
-        logger.error(f"Failed to delete financial_id={financial_id}: {e}")
+        logger.error(f"Failed to delete financial_id={record.financial_id}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred while deleting the financial information."

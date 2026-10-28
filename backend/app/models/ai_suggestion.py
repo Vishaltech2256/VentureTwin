@@ -51,7 +51,7 @@ class AISuggestion(Base):
     )
 
     startup: Mapped["StartupProfile"] = relationship(
-        "StartupProfile", backref="ai_suggestions"
+        "StartupProfile", back_populates="ai_suggestions"
     )
     prediction: Mapped["Prediction"] = relationship(
         "Prediction", backref="ai_suggestions"
