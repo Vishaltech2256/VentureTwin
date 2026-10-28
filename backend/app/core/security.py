@@ -27,7 +27,7 @@ def create_access_token(subject: Union[str, Any], expires_delta: timedelta | Non
 def decode_access_token(token: str) -> dict | None:
     try:
         decoded_token = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        return decoded_token if decoded_token["exp"] >= datetime.now(timezone.utc).timestamp() else None
+        return dict(decoded_token) if decoded_token["exp"] >= datetime.now(timezone.utc).timestamp() else None
     except Exception:
         return None
 

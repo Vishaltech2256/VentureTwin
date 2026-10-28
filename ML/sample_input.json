@@ -1,0 +1,12 @@
+{
+  "business_type": "Software",
+  "budget": 250000.0,
+  "currency": "USD",
+  "monthly_expenses": 12000.0,
+  "expected_monthly_revenue": 20000.0,
+  "num_employees": 4,
+  "location_tier": "Tier 1",
+  "startup_stage": "Seed",
+  "funding_source": "Angel Round",
+  "has_land": false
+}

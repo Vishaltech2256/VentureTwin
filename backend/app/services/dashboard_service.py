@@ -120,6 +120,10 @@ def get_dashboard(db: Session, startup_id: int, user_id: int) -> dict[str, Any]:
 
         # Records that require separate queries (not joined to StartupProfile)
         prediction = _get_latest_prediction(db, startup_id)
+        if prediction is not None:
+            from app.services.prediction_service import _attach_ml_fields
+            _attach_ml_fields(prediction, startup)
+
         suggestions = _get_ai_suggestions(db, startup_id)
         latest_report = _get_latest_report(db, startup_id)
 

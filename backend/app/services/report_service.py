@@ -77,7 +77,12 @@ def _build_report_content(db: Session, report: Report) -> dict[str, Any]:
     location = startup.location
     land = startup.land_detail
     prediction = _get_latest_prediction(db, startup.startup_id)
+    if prediction is not None:
+        from app.services.prediction_service import _attach_ml_fields
+        _attach_ml_fields(prediction, startup)
+
     suggestions = (
+
         db.query(AISuggestion)
         .filter(AISuggestion.startup_id == startup.startup_id)
         .order_by(AISuggestion.created_at.desc(), AISuggestion.suggestion_id.desc())
@@ -150,10 +155,14 @@ def _build_report_content(db: Session, report: Report) -> dict[str, Any]:
                 "profit_prediction": _as_float(prediction.profit_prediction),
                 "risk_level": prediction.risk_level,
                 "health_score": _as_float(prediction.health_score),
+                "relative_success_likelihood": getattr(prediction, "relative_success_likelihood", None),
+                "relative_likelihood_percentage": getattr(prediction, "relative_likelihood_percentage", None),
+                "relative_classification": getattr(prediction, "relative_classification", None),
             }
             if prediction
             else None
         ),
+
         "ai_suggestions": [
             {
                 "title": suggestion.title,

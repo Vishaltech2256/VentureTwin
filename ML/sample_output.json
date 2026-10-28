@@ -1,0 +1,39 @@
+{
+  "relative_success_likelihood": 0.2291,
+  "relative_likelihood_percentage": "22.9%",
+  "relative_classification": "Moderate/Low Relative Likelihood",
+  "ml_model_evaluation": {
+    "relative_success_likelihood": 0.2291,
+    "relative_likelihood_percentage": "22.9%",
+    "relative_classification": "Moderate/Low Relative Likelihood",
+    "positive_factors": [
+      {
+        "feature": "capital_raised",
+        "description": "Capital budget ($250,000 USD equivalent) provides solid initial runway."
+      },
+      {
+        "feature": "industry_sector",
+        "description": "Industry sector 'Software' has active ecosystem representation in training data."
+      },
+      {
+        "feature": "geography",
+        "description": "Location (USA, CA) evaluated within corresponding regional cohort."
+      }
+    ],
+    "negative_factors": [],
+    "recommendations": [],
+    "interpretation_note": "Relative success likelihood evaluated against historical resolved ventures (exit vs closure). Because unresolved operating ventures are excluded from the training sample, this score represents a relative rank-ordered likelihood rather than an absolute population base-rate probability."
+  },
+  "operational_formula_estimates": {
+    "calculation_source": "User-entered expected revenue and expenses (deterministic formula, NOT an ML prediction)",
+    "estimated_annual_revenue": 240000.0,
+    "estimated_annual_profit": 96000.0,
+    "formula_risk_level": "Medium",
+    "formula_health_score": 80.0,
+    "disclaimer": "Revenue and profit figures are derived from user-entered expected revenue and expenses via standard financial formulas (MRR x 12, Revenue - Annual Expenses). They are NOT machine learning predictions. The ONLY machine learning prediction is relative success likelihood."
+  },
+  "warnings": [
+    "Location tier 'Tier 1' used as ecosystem proxy (mapped to Tier 1 US (CA / Silicon Valley))",
+    "Domain limitation: Training cohort consists of VC-backed tech startups (circa 2015 Crunchbase data). Capital raised acts as a cumulative historical proxy for founder starting budget. Predictions may have lower relevance for non-tech, lifestyle, or brick-and-mortar small businesses."
+  ]
+}

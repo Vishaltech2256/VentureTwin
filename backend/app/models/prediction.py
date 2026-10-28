@@ -1,6 +1,7 @@
 # app/models/prediction.py
 
 from datetime import datetime, timezone
+from typing import Any, Optional
 from sqlalchemy import Integer, Numeric, String, DateTime, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database.database import Base
@@ -8,6 +9,7 @@ from app.database.database import Base
 
 class Prediction(Base):
     __tablename__ = "predictions"
+    __allow_unmapped__ = True
 
     prediction_id: Mapped[int] = mapped_column(
         Integer, primary_key=True, index=True
@@ -36,4 +38,12 @@ class Prediction(Base):
 
     # Relationship back to the parent startup
     startup = relationship("StartupProfile", backref="predictions")
+
+    # Dynamic ML evaluation fields (transient attributes populated for response serialization)
+    relative_success_likelihood: Optional[float] = None
+    relative_likelihood_percentage: Optional[str] = None
+    relative_classification: Optional[str] = None
+    ml_model_evaluation: Optional[dict[str, Any]] = None
+    warnings: Optional[list[str]] = None
+
 

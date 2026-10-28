@@ -23,7 +23,11 @@ router = APIRouter(tags=["Prediction Engine"])
         "saves the result as a new record in the database.\n\n"
         "**Every call creates a brand-new prediction record** — previous predictions are "
         "never overwritten, giving you a full history of all runs.\n\n"
-        "**Calculation formulas:**\n"
+        "**Machine Learning Evaluation (XGBoost):**\n"
+        "- **Relative Success Likelihood** = ML index (0.0 to 1.0) evaluated against historical "
+        "resolved ventures (exit vs closure). This is an ordinal rank-ordered likelihood, NOT an "
+        "absolute population base-rate probability.\n\n"
+        "**Operational Formula Estimates (Deterministic Formulas, NOT ML predictions):**\n"
         "- **Revenue Prediction** = `expected_monthly_revenue × 12`\n"
         "- **Profit Prediction** = `revenue_prediction − (monthly_expenses × 12)`\n"
         "- **Risk Level:**\n"
@@ -43,7 +47,8 @@ router = APIRouter(tags=["Prediction Engine"])
         "- `401` — Unauthorized (missing or invalid JWT)\n"
         "- `403` — Startup belongs to a different user\n"
         "- `404` — Startup profile not found\n"
-        "- `500` — Internal server error"
+        "- `500` — Internal server error\n"
+        "- `503` — Prediction model artifacts unavailable"
     ),
     responses={
         201: {
@@ -57,11 +62,27 @@ router = APIRouter(tags=["Prediction Engine"])
                         "profit_prediction": 84000.00,
                         "risk_level": "Medium",
                         "health_score": 90.00,
+                        "relative_success_likelihood": 0.2291,
+                        "relative_likelihood_percentage": "22.9%",
+                        "relative_classification": "Moderate/Low Relative Likelihood",
+                        "ml_model_evaluation": {
+                            "relative_success_likelihood": 0.2291,
+                            "relative_likelihood_percentage": "22.9%",
+                            "relative_classification": "Moderate/Low Relative Likelihood",
+                            "positive_factors": [],
+                            "negative_factors": [],
+                            "recommendations": [],
+                            "interpretation_note": "Relative success likelihood evaluated against historical resolved ventures."
+                        },
+                        "warnings": [
+                            "Domain limitation: Training cohort consists of VC-backed tech startups."
+                        ],
                         "created_at": "2026-07-17T21:00:00",
                     }
                 }
             },
         },
+
         400: {"description": "Financial data missing or incomplete"},
         401: {"description": "Unauthorized — missing or invalid JWT token"},
         403: {"description": "Forbidden — startup belongs to a different user"},

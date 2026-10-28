@@ -62,70 +62,160 @@ def _get_latest_prediction(db: Session, startup_id: int) -> Prediction:
 def _suggestion_rules(
     startup: StartupProfile, prediction: Prediction
 ) -> list[dict[str, str]]:
-    """Evaluate the defined recommendation rules against the latest prediction."""
+    """Evaluate the defined recommendation rules against the startup and its latest prediction."""
     suggestions: list[dict[str, str]] = []
 
-    if (prediction.risk_level or "").strip().upper() == "HIGH":
+    from app.services.prediction_service import _attach_ml_fields
+    _attach_ml_fields(prediction, startup)
+
+    financial_info = startup.financial_info
+    monthly_expenses = (
+        float(financial_info.monthly_expenses or 0) if financial_info else 0.0
+    )
+    monthly_revenue = float(prediction.revenue_prediction or 0) / 12
+    annual_profit = float(prediction.profit_prediction or 0)
+    monthly_profit = annual_profit / 12
+    health_score = float(prediction.health_score or 0)
+    risk_level = (prediction.risk_level or "").strip().upper()
+
+    # 1. Machine Learning Relative Success Likelihood Evaluation
+    rel_likelihood = getattr(prediction, "relative_success_likelihood", None)
+    rel_perc = getattr(prediction, "relative_likelihood_percentage", None) or (
+        f"{rel_likelihood * 100:.1f}%" if rel_likelihood is not None else None
+    )
+    rel_class = getattr(prediction, "relative_classification", "Moderate/Low Relative Likelihood")
+
+    if rel_likelihood is not None:
+        if rel_likelihood < 0.35:
+            suggestions.append(
+                {
+                    "title": "Strengthen venture capitalization and cohort positioning",
+                    "description": (
+                        f"The ML model evaluates this startup at a Relative Success Likelihood of {rel_perc} "
+                        f"({rel_class}) against historical resolved venture cohorts. Consider extending runway "
+                        f"through strategic angel commitments and optimizing unit economics to improve relative venture standing."
+                    ),
+                    "priority": SuggestionPriority.HIGH.value,
+                    "category": SuggestionCategory.INVESTMENT.value,
+                }
+            )
+        elif rel_likelihood < 0.50:
+            suggestions.append(
+                {
+                    "title": "Enhance product-market validation to elevate cohort ranking",
+                    "description": (
+                        f"With a Relative Success Likelihood of {rel_perc} ({rel_class}), prioritize customer "
+                        f"discovery and iterative feedback loops to demonstrate early traction and accelerate growth."
+                    ),
+                    "priority": SuggestionPriority.MEDIUM.value,
+                    "category": SuggestionCategory.GROWTH.value,
+                }
+            )
+        else:
+            suggestions.append(
+                {
+                    "title": "Capitalize on favorable cohort positioning",
+                    "description": (
+                        f"With a Relative Success Likelihood of {rel_perc} ({rel_class}), the venture is positioned "
+                        f"competitively against historical peers. Accelerate go-to-market channels."
+                    ),
+                    "priority": SuggestionPriority.LOW.value,
+                    "category": SuggestionCategory.GROWTH.value,
+                }
+            )
+
+    # 2. Risk Level and Profitability Classification
+    if risk_level == "HIGH":
         suggestions.append(
             {
                 "title": "Reduce operational expenses",
                 "description": (
-                    "Review recurring spending, reduce non-essential costs, "
-                    "and improve cash flow."
+                    "Review recurring spending, eliminate non-essential costs, "
+                    "and improve cash flow to reach operational break-even."
                 ),
                 "priority": SuggestionPriority.HIGH.value,
                 "category": SuggestionCategory.FINANCE.value,
             }
         )
+    elif risk_level == "MEDIUM":
+        suggestions.append(
+            {
+                "title": "Strengthen operating profit margins",
+                "description": (
+                    f"Projected annual profit is ${annual_profit:,.2f} (${monthly_profit:,.2f}/month), placing the "
+                    f"startup in the Medium risk tier. Refine pricing structures and control variable expenses "
+                    f"to elevate profitability toward the Low risk threshold ($100,000+ annual profit)."
+                ),
+                "priority": SuggestionPriority.MEDIUM.value,
+                "category": SuggestionCategory.FINANCE.value,
+            }
+        )
+    elif risk_level == "LOW":
+        suggestions.append(
+            {
+                "title": "Reinvest healthy margins into scalable growth",
+                "description": (
+                    f"Annual projected profit is solid at ${annual_profit:,.2f}. Reinvest operating surplus "
+                    f"into high-ROI customer acquisition and product development."
+                ),
+                "priority": SuggestionPriority.LOW.value,
+                "category": SuggestionCategory.FINANCE.value,
+            }
+        )
 
-    if float(prediction.health_score) < 50:
+    # 3. Health Score and Operational Foundation
+    if health_score < 50:
         suggestions.append(
             {
                 "title": "Improve business sustainability",
                 "description": (
-                    "Strengthen the operating model, preserve cash, and address "
-                    "the factors lowering the startup health score."
+                    "Strengthen the operating model, preserve cash reserves, and address "
+                    "the key structural factors lowering the startup health score."
                 ),
                 "priority": SuggestionPriority.HIGH.value,
                 "category": SuggestionCategory.OPERATIONS.value,
             }
         )
+    elif health_score >= 80:
+        suggestions.append(
+            {
+                "title": "Leverage strong operational foundation",
+                "description": (
+                    f"Startup health score is strong at {health_score:.0f}/100. Leverage this structural stability "
+                    f"when negotiating strategic partnerships and preparing investor presentations."
+                ),
+                "priority": SuggestionPriority.LOW.value,
+                "category": SuggestionCategory.OPERATIONS.value,
+            }
+        )
 
-    # Prediction Engine persists annual projections. Convert them to monthly values
-    # before comparing to the startup's monthly expense and profit thresholds.
-    monthly_revenue = float(prediction.revenue_prediction) / 12
-    monthly_profit = float(prediction.profit_prediction) / 12
-    financial_info = startup.financial_info
-    monthly_expenses = (
-        float(financial_info.monthly_expenses or 0) if financial_info else 0
-    )
-
+    # 4. Revenue vs Expenses Unit Economics
     if monthly_revenue < monthly_expenses:
         suggestions.append(
             {
-                "title": "Increase customer acquisition",
+                "title": "Increase customer acquisition velocity",
                 "description": (
-                    "Prioritize customer acquisition campaigns and conversion "
-                    "improvements to lift monthly revenue above monthly expenses."
+                    "Prioritize targeted customer acquisition campaigns and conversion improvements "
+                    "to lift monthly revenue above current monthly burn."
                 ),
                 "priority": SuggestionPriority.HIGH.value,
                 "category": SuggestionCategory.MARKETING.value,
             }
         )
-
-    if monthly_profit > 100_000:
+    elif monthly_revenue >= monthly_expenses and monthly_revenue > 0:
         suggestions.append(
             {
-                "title": "Consider expanding operations",
+                "title": "Accelerate customer retention and expansion",
                 "description": (
-                    "Use the strong monthly profit position to evaluate a measured "
-                    "expansion of capacity, markets, or product offerings."
+                    f"Target monthly revenue (${monthly_revenue:,.2f}) covers monthly operating expenses (${monthly_expenses:,.2f}). "
+                    f"Focus on customer retention, expansion revenue, and increasing average contract value."
                 ),
-                "priority": SuggestionPriority.LOW.value,
-                "category": SuggestionCategory.GROWTH.value,
+                "priority": SuggestionPriority.MEDIUM.value,
+                "category": SuggestionCategory.MARKETING.value,
             }
         )
 
+    # 5. Funding Source Strategy
     funding_source = (
         (financial_info.funding_source or "").strip().casefold()
         if financial_info
@@ -134,17 +224,50 @@ def _suggestion_rules(
     if funding_source == "self funded":
         suggestions.append(
             {
-                "title": "Explore investor funding",
+                "title": "Explore external investor funding",
                 "description": (
-                    "Prepare an investment case and explore suitable investor funding "
-                    "options to support the next stage of growth."
+                    "Prepare an investment deck and explore suitable angel or venture capital "
+                    "options to accelerate market traction without exhausting personal capital."
+                ),
+                "priority": SuggestionPriority.MEDIUM.value,
+                "category": SuggestionCategory.INVESTMENT.value,
+            }
+        )
+    elif funding_source in {"angel round", "angel", "bootstrapped"}:
+        suggestions.append(
+            {
+                "title": "Define milestones for institutional funding",
+                "description": (
+                    f"Currently backed by '{financial_info.funding_source}'. Establish clear product and revenue "
+                    f"milestones needed to prepare for institutional seed or Series A venture capital."
                 ),
                 "priority": SuggestionPriority.MEDIUM.value,
                 "category": SuggestionCategory.INVESTMENT.value,
             }
         )
 
+    # 6. Team & Scaling
+    team_info = startup.team_info
+    employee_count = (
+        team_info.number_of_employees
+        if team_info and team_info.number_of_employees is not None
+        else 0
+    )
+    if employee_count <= 2:
+        suggestions.append(
+            {
+                "title": "Plan strategic core team hires",
+                "description": (
+                    "With a compact founding team, identify critical skill gaps in technical development or "
+                    "sales and plan key strategic hires as operational volume grows."
+                ),
+                "priority": SuggestionPriority.MEDIUM.value,
+                "category": SuggestionCategory.HIRING.value,
+            }
+        )
+
     return suggestions
+
 
 
 def generate_suggestions(
@@ -153,7 +276,24 @@ def generate_suggestions(
     """Generate idempotent suggestions for the latest prediction and persist them."""
     startup = _get_owned_startup(db, startup_id, user_id)
     prediction = _get_latest_prediction(db, startup_id)
+    logger.info(
+        "Evaluating AI suggestion rules for startup_id=%s, prediction_id=%s (risk=%s, health=%s, rev=%s, profit=%s, stage=%s)",
+        startup_id,
+        prediction.prediction_id,
+        prediction.risk_level,
+        prediction.health_score,
+        prediction.revenue_prediction,
+        prediction.profit_prediction,
+        startup.startup_stage,
+    )
     rule_results = _suggestion_rules(startup, prediction)
+    if not rule_results:
+        logger.warning(
+            "0 AI suggestion rules matched for startup_id=%s, prediction_id=%s",
+            startup_id,
+            prediction.prediction_id,
+        )
+
 
     try:
         # Regeneration is idempotent for a prediction: it refreshes stale output

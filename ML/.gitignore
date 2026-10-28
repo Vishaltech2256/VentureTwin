@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+*.env
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+verify_clean_test/
+test_install_check/
+
+# Local audit / scratch scripts
+backend/VentureTwin-main/
+scratch_test_install.py
+test_feedback.py
+run_clean_verification.py
+
+# Databases
+*.db
+*.sqlite3
+
+# IDE / Editor files
+.vscode/
+.idea/
+.pytest_cache/

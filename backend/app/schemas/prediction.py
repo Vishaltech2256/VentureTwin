@@ -36,17 +36,17 @@ class PredictionResponse(BaseModel):
     )
     revenue_prediction: float = Field(
         ...,
-        description="Projected annual revenue",
+        description="Projected annual revenue (deterministic formula: expected_monthly_revenue × 12)",
         examples=[180000.00],
     )
     profit_prediction: float = Field(
         ...,
-        description="Projected annual profit (may be negative for high-risk startups)",
+        description="Projected annual profit (deterministic formula: revenue − annual expenses)",
         examples=[84000.00],
     )
     risk_level: str = Field(
         ...,
-        description="Risk classification: High | Medium | Low",
+        description="Formula-based risk classification: High | Medium | Low",
         examples=["Medium"],
     )
     health_score: float = Field(
@@ -59,4 +59,30 @@ class PredictionResponse(BaseModel):
         description="UTC timestamp when the prediction was generated",
     )
 
+    # Machine Learning evaluation fields (evaluated via XGBoost against historical resolved cohorts)
+    relative_success_likelihood: Optional[float] = Field(
+        default=None,
+        description="Machine Learning Relative Success Likelihood (0.0 to 1.0, evaluated against historical resolved ventures). NOT an absolute success probability.",
+        examples=[0.2291],
+    )
+    relative_likelihood_percentage: Optional[str] = Field(
+        default=None,
+        description="Relative Success Likelihood formatted as a percentage string",
+        examples=["22.9%"],
+    )
+    relative_classification: Optional[str] = Field(
+        default=None,
+        description="Relative Likelihood classification category",
+        examples=["Moderate/Low Relative Likelihood"],
+    )
+    ml_model_evaluation: Optional[dict] = Field(
+        default=None,
+        description="Detailed ML model evaluation breakdown including factors, recommendations, and interpretation note",
+    )
+    warnings: Optional[list[str]] = Field(
+        default=None,
+        description="Plain-English warnings regarding sector fallbacks, location proxies, or domain constraints",
+    )
+
     model_config = {"from_attributes": True}
+

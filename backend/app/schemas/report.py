@@ -93,6 +93,21 @@ class PredictionSummary(BaseModel):
     profit_prediction: float = Field(..., examples=[84000.0])
     risk_level: str = Field(..., examples=["Medium"])
     health_score: float = Field(..., examples=[90.0])
+    relative_success_likelihood: Optional[float] = Field(
+        default=None,
+        description="Machine Learning Relative Success Likelihood (0.0 to 1.0)",
+        examples=[0.2291],
+    )
+    relative_likelihood_percentage: Optional[str] = Field(
+        default=None,
+        description="Relative Success Likelihood percentage string",
+        examples=["22.9%"],
+    )
+    relative_classification: Optional[str] = Field(
+        default=None,
+        description="Relative classification category",
+        examples=["Moderate/Low Relative Likelihood"],
+    )
 
 
 class ReportSuggestion(BaseModel):

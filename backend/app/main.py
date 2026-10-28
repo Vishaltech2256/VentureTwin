@@ -5,13 +5,14 @@ from contextlib import asynccontextmanager
 import logging
 
 from app.core.config import settings
-from app.database.database import engine, get_db
-# Assuming there is a central router in app.api or we import routers individually.
-# If an api router doesn't exist yet, you can adjust this import.
-try:
-    from app.api.router import api_router
-except ImportError:
-    api_router = None
+from app.database.database import engine, get_db, Base
+import app.models.user
+import app.models.startup_profile
+import app.models.prediction
+import app.models.ai_suggestion
+import app.models.report
+
+from app.api.router import api_router
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +20,14 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     # Startup event
     logger.info("Starting up Startup Digital Twin AI Backend...")
-    # Add any startup logic here (e.g., initial cache loading, etc.)
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("Database tables initialized successfully.")
+    except Exception as e:
+        logger.warning(f"Could not auto-create tables: {e}")
     yield
     # Shutdown event
     logger.info("Shutting down Startup Digital Twin AI Backend...")
-    # Add any shutdown logic here
 
 app = FastAPI(
     title="Startup Digital Twin AI",
@@ -31,10 +35,12 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Set all CORS enabled origins
+# Set CORS enabled origins
+# Note: When allow_credentials=True, browsers reject wildcard '*' on requests with credentials.
+# allow_origin_regex ensures the caller's origin is dynamically validated and reflected.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this using settings.ALLOWED_ORIGINS
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$|^https://.*\.onrender\.com$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,6 +51,7 @@ def read_root():
     return {"message": "Startup Digital Twin AI Backend is running"}
 
 @app.get("/health")
+@app.get("/api/health")
 def health_check():
     """
     Health check endpoint that verifies the database connection.
